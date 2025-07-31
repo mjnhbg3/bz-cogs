@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import random
 from typing import Dict, List, Optional, Any
@@ -32,7 +33,7 @@ class SubtleRegenerationView(discord.ui.View):
     """Minimal, unobtrusive regeneration UI"""
     
     def __init__(self, cog: MixinMeta, ctx: commands.Context, original_message: discord.Message, 
-                 messages_list: MessagesList, selected_model_info: Dict = None, timeout: float = 1800):
+                 messages_list: MessagesList, selected_model_info: Dict = None, timeout: float = 300):
         super().__init__(timeout=timeout)
         self.cog = cog
         self.ctx = ctx
@@ -43,7 +44,21 @@ class SubtleRegenerationView(discord.ui.View):
         self.rating_system = ResponseRating(cog.config)
         
         # Add a small, subtle regeneration button
-        self.add_item(RegenerateButton(self))
+        self.regen_button = RegenerateButton(self)
+        self.add_item(self.regen_button)
+        
+        # Enable button after a short delay to be less intrusive
+        asyncio.create_task(self._enable_button_after_delay())
+    
+    async def _enable_button_after_delay(self):
+        """Enable the regeneration button after a delay to be less intrusive"""
+        await asyncio.sleep(3)  # Wait 3 seconds before showing the button
+        if not self.is_finished():
+            self.regen_button.disabled = False
+            try:
+                await self.original_message.edit(view=self)
+            except (discord.NotFound, discord.HTTPException):
+                pass
     
     async def on_timeout(self):
         """Called when the view times out"""
@@ -60,9 +75,10 @@ class RegenerateButton(discord.ui.Button):
     def __init__(self, parent_view: SubtleRegenerationView):
         self.parent_view = parent_view
         super().__init__(
-            style=discord.ButtonStyle.secondary,
-            emoji="🔄",
-            row=0
+            style=discord.ButtonStyle.grey,  # Even more subtle than secondary
+            emoji="↻",  # Use a smaller, less prominent arrow symbol
+            row=4,  # Put on bottom row to be less prominent
+            disabled=True  # Start disabled, will be enabled after a delay
         )
     
     async def callback(self, interaction: discord.Interaction):
@@ -91,17 +107,17 @@ class RegenerateButton(discord.ui.Button):
                 await interaction.followup.send("❌ Failed to connect to endpoint", ephemeral=True)
                 return
             
-            # Create a temporary pipeline with the new model
+            # Create a temporary pipeline with the new model using the existing messages list
             temp_messages = MessagesList(
-                self.parent_view.messages_list.ctx,
-                self.parent_view.messages_list.author,
-                self.parent_view.messages_list.channel_id,
-                self.parent_view.messages_list.guild_id,
-                model_config["model"],
-                self.parent_view.messages_list.can_reply,
-                self.parent_view.messages_list.messages,
-                self.parent_view.messages_list.conversation_mode
+                self.parent_view.cog,
+                self.parent_view.ctx
             )
+            
+            # Initialize with the new model
+            await temp_messages._init()
+            temp_messages.model = model_config["model"]
+            temp_messages.can_reply = self.parent_view.messages_list.can_reply
+            temp_messages.messages = self.parent_view.messages_list.messages.copy()
             
             # Set the client for this endpoint
             original_client = self.parent_view.cog.openai_client

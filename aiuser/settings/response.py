@@ -83,7 +83,7 @@ class ResponseSettings(MixinMeta):
 
     @removelist.command(name="add")
     async def removelist_add(self, ctx: commands.Context, *, regex_pattern: str):
-        """Add a regex pattern to remove unwanted text from AI responses
+        r"""Add a regex pattern to remove unwanted text from AI responses
         
         **Examples:**
         - `^As an AI` - Remove "As an AI..." at start of messages
