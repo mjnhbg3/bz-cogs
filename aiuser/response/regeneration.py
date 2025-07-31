@@ -7,10 +7,10 @@ from redbot.core.bot import Red
 
 from aiuser.messages_list.messages import MessagesList, create_messages_list
 from aiuser.response.chat.llm_pipeline import LLMPipeline
-from aiuser.response.chat.response import remove_patterns_from_response
 from aiuser.types.abc import MixinMeta
 from aiuser.utils.endpoint_manager import EndpointManager
 from aiuser.utils.response_rating import ResponseRating
+from aiuser.utils.response_utils import remove_patterns_from_response
 
 logger = logging.getLogger("red.bz_cogs.aiuser")
 
