@@ -207,17 +207,43 @@ async def add_subtle_regeneration(cog: MixinMeta, ctx: commands.Context,
                                 selected_model_info: Dict = None) -> discord.Message:
     """Add subtle regeneration controls and reaction monitoring to a message"""
     try:
+        # First check if we have necessary models configured
+        regen_models = await cog.config.regen_models()
+        if not regen_models:
+            logger.info("No regeneration models configured, skipping regeneration view")
+            await setup_reaction_monitoring(cog, message, selected_model_info)
+            return message
+        
         # Add the subtle regeneration view (small button)
         view = SubtleRegenerationView(cog, ctx, message, messages_list, selected_model_info)
-        await message.edit(view=view)
         
-        # Set up reaction monitoring for sentiment tracking
-        await setup_reaction_monitoring(cog, message, selected_model_info)
+        # Debug logging
+        logger.info(f"Created regeneration view with {len(view.children)} components")
+        for i, child in enumerate(view.children):
+            logger.info(f"Component {i}: {type(child).__name__} - {getattr(child, 'emoji', 'no emoji')}")
         
-        return message
+        # Try to edit the message with the view
+        try:
+            edited_message = await message.edit(view=view)
+            logger.info(f"Successfully added regeneration view to message {message.id}")
+            
+            # Set up reaction monitoring for sentiment tracking
+            await setup_reaction_monitoring(cog, message, selected_model_info)
+            
+            return edited_message
+        except discord.HTTPException as e:
+            logger.error(f"Failed to edit message with view: {e}")
+            # Try sending a separate message with just the view as fallback
+            try:
+                view_message = await ctx.send("🔄", view=view, delete_after=300)
+                logger.info(f"Sent fallback regeneration view message {view_message.id}")
+                return message
+            except Exception as fallback_error:
+                logger.error(f"Fallback view message also failed: {fallback_error}")
+                return message
         
     except Exception as e:
-        logger.error(f"Failed to add subtle regeneration: {e}")
+        logger.error(f"Failed to add subtle regeneration: {e}", exc_info=True)
         return message
 
 async def setup_reaction_monitoring(cog: MixinMeta, message: discord.Message, 
