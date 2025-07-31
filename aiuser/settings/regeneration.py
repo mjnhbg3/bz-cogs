@@ -16,8 +16,42 @@ class RegenerationSettings(MixinMeta):
     @commands.group()
     @checks.admin_or_permissions(manage_guild=True)
     async def regen(self, ctx):
-        """Manage response regeneration settings"""
-        pass
+        """Manage response regeneration settings
+        
+        The regeneration system allows users to try different AI models for responses:
+        - Users can click a small "🔄 Try different model" button under bot responses
+        - React to bot messages with emojis (👍👎❤️😂😮😢😡🤔🎯❓) to rate responses
+        - Enable random mode to automatically vary models across responses
+        """
+        if ctx.invoked_subcommand is None:
+            embed = discord.Embed(
+                title="🔄 Response Regeneration System",
+                description=(
+                    "**For Users:**\n"
+                    "• Click the small regeneration button under bot responses\n"
+                    "• React with emojis to rate responses (👍👎❤️😂etc.)\n"
+                    "• Reactions are logged for model performance tracking\n\n"
+                    "**For Admins:**\n"
+                    "• Configure multiple AI models and endpoints\n"
+                    "• Enable random model selection for variety\n"
+                    "• View rating statistics and model performance"
+                ),
+                color=discord.Color.blue()
+            )
+            embed.add_field(
+                name="📋 Available Commands",
+                value=(
+                    "`regen models` - List configured models\n"
+                    "`regen add` - Add a new model\n"
+                    "`regen remove` - Remove a model\n"
+                    "`regen default` - Set default model\n"
+                    "`regen random` - Toggle random model mode\n"
+                    "`regen stats` - View rating statistics"
+                ),
+                inline=False
+            )
+            embed.set_footer(text="Use [p]help aiuser regen <command> for detailed help")
+            await ctx.send(embed=embed)
     
     @regen.command(name="models")
     async def regen_models_list(self, ctx):

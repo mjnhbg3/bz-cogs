@@ -15,6 +15,7 @@ from aiuser.config.defaults import (
     DEFAULT_ROLE,
 )
 from aiuser.core.handlers import handle_message, handle_slash_command
+from aiuser.response.regeneration import handle_reaction_add
 from aiuser.core.random_message_task import RandomMessageTask
 from aiuser.dashboard.base import DashboardIntegration
 from aiuser.messages_list.entry import MessageEntry
@@ -117,3 +118,8 @@ class AIUser(
     @commands.Cog.listener()
     async def on_message_without_command(self, message: discord.Message):
         await handle_message(self, message)
+    
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        """Handle reaction additions for sentiment tracking"""
+        await handle_reaction_add(self, payload)

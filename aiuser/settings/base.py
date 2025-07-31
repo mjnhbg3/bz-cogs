@@ -213,6 +213,37 @@ class Settings(
         main_embed.add_field(
             name="Public Forget Command", inline=True, value=f"`{config['public_forget']}`"
         )
+        
+        # Add regeneration settings section
+        regen_models = glob_config.get("regen_models", [])
+        random_mode = glob_config.get("random_model_enabled", False)
+        
+        main_embed.add_field(
+            name="",
+            inline=False,
+            value="**🔄 Regeneration Settings**",  
+        )
+        
+        main_embed.add_field(
+            name="Available Models",
+            inline=True,
+            value=f"`{len(regen_models)}` configured",
+        )
+        
+        main_embed.add_field(
+            name="Random Model Mode",
+            inline=True,
+            value=f"`{random_mode}`",
+        )
+        
+        # Show default model
+        default_model = next((m["name"] for m in regen_models if m.get("default", False)), "None")
+        main_embed.add_field(
+            name="Default Model",
+            inline=True,
+            value=f"`{default_model}`",
+        )
+        
         embeds.append(main_embed)
 
         parameters = config["parameters"]
