@@ -62,7 +62,7 @@ class RegenerateButton(discord.ui.Button):
         self.parent_view = parent_view
         super().__init__(
             style=discord.ButtonStyle.secondary,  # Back to secondary so it's visible
-            emoji="↻",  # Keep the smaller arrow symbol
+            emoji="🔄",  # Back to working emoji
             row=0  # Back to normal row so it's findable
         )
     
@@ -217,30 +217,13 @@ async def add_subtle_regeneration(cog: MixinMeta, ctx: commands.Context,
         # Add the subtle regeneration view (small button)
         view = SubtleRegenerationView(cog, ctx, message, messages_list, selected_model_info)
         
-        # Debug logging
-        logger.info(f"Created regeneration view with {len(view.children)} components")
-        for i, child in enumerate(view.children):
-            logger.info(f"Component {i}: {type(child).__name__} - {getattr(child, 'emoji', 'no emoji')}")
+        # Edit the message with the view
+        edited_message = await message.edit(view=view)
         
-        # Try to edit the message with the view
-        try:
-            edited_message = await message.edit(view=view)
-            logger.info(f"Successfully added regeneration view to message {message.id}")
-            
-            # Set up reaction monitoring for sentiment tracking
-            await setup_reaction_monitoring(cog, message, selected_model_info)
-            
-            return edited_message
-        except discord.HTTPException as e:
-            logger.error(f"Failed to edit message with view: {e}")
-            # Try sending a separate message with just the view as fallback
-            try:
-                view_message = await ctx.send("🔄", view=view, delete_after=300)
-                logger.info(f"Sent fallback regeneration view message {view_message.id}")
-                return message
-            except Exception as fallback_error:
-                logger.error(f"Fallback view message also failed: {fallback_error}")
-                return message
+        # Set up reaction monitoring for sentiment tracking
+        await setup_reaction_monitoring(cog, message, selected_model_info)
+        
+        return edited_message
         
     except Exception as e:
         logger.error(f"Failed to add subtle regeneration: {e}", exc_info=True)
