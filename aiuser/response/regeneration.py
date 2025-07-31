@@ -61,9 +61,10 @@ class RegenerateButton(discord.ui.Button):
     def __init__(self, parent_view: SubtleRegenerationView):
         self.parent_view = parent_view
         super().__init__(
-            style=discord.ButtonStyle.secondary,  # Back to secondary so it's visible
-            emoji="🔄",  # Back to working emoji
-            row=0  # Back to normal row so it's findable
+            style=discord.ButtonStyle.secondary,
+            emoji="🔄",
+            label="",  # Explicitly set empty label to minimize size
+            row=0
         )
     
     async def callback(self, interaction: discord.Interaction):

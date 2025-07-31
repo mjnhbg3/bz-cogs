@@ -6,14 +6,14 @@ import discord
 from redbot.core import checks, commands
 from redbot.core.utils.chat_formatting import box, pagify
 
-from aiuser.types.abc import MixinMeta
+from aiuser.types.abc import MixinMeta, aiuser
 
 logger = logging.getLogger("red.bz_cogs.aiuser")
 
 class RegenerationSettings(MixinMeta):
     """Settings for response regeneration and model management"""
     
-    @commands.group()
+    @aiuser.group(name="regen")
     @checks.admin_or_permissions(manage_guild=True)
     async def regen(self, ctx):
         """Manage response regeneration settings
