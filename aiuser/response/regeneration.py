@@ -85,74 +85,82 @@ class RegenerateButton(discord.ui.Button):
             await interaction.response.send_message("Choose a model:", view=view, ephemeral=True)
 
     async def _regenerate_with_model(self, model_config: Dict[str, Any], interaction: discord.Interaction):
-        """Actually regenerate with the specified model"""
+        """Actually regenerate with the specified model using full aiuser pipeline"""
         try:
-            # Get the appropriate client for this endpoint
+            # Acknowledge the interaction immediately to prevent timeout
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
+            
+            # Get the appropriate client for this endpoint  
             client = await self.parent_view.endpoint_manager.get_client(model_config["endpoint"])
             if not client:
                 await interaction.followup.send("❌ Failed to connect to endpoint", ephemeral=True)
                 return
             
-            # Create a temporary pipeline with the new model using the existing messages list
-            temp_messages = MessagesList(
-                self.parent_view.cog,
-                self.parent_view.ctx
-            )
-            
-            # Initialize with the new model
-            await temp_messages._init()
-            temp_messages.model = model_config["model"]
-            temp_messages.can_reply = self.parent_view.messages_list.can_reply
-            temp_messages.messages = self.parent_view.messages_list.messages.copy()
-            
-            # Set the client for this endpoint
+            # Store original client and model to restore later
             original_client = self.parent_view.cog.openai_client
-            self.parent_view.cog.openai_client = client
+            original_model = self.parent_view.messages_list.model
             
             try:
-                pipeline = LLMPipeline(self.parent_view.cog, self.parent_view.ctx, temp_messages)
-                await pipeline.setup_tools()
-                response = await pipeline.generate_response()
+                # Switch to the new model and client
+                self.parent_view.cog.openai_client = client
+                self.parent_view.messages_list.model = model_config["model"]
+                
+                # Use the full aiuser pipeline system
+                pipeline = LLMPipeline(self.parent_view.cog, self.parent_view.ctx, self.parent_view.messages_list)
+                response = await pipeline.run()
                 
                 if response:
-                    # Clean the response
+                    # Clean the response using the same system as normal responses
                     cleaned_response = await remove_patterns_from_response(
                         self.parent_view.ctx, self.parent_view.cog.config, response
                     )
                     
-                    # Update the original message with new response
-                    model_attribution = f"\n\n*— {model_config['name']}*"
-                    new_content = cleaned_response + model_attribution
-                    
-                    # Truncate if too long
-                    if len(new_content) > 2000:
-                        new_content = cleaned_response[:1950] + "..." + model_attribution
-                    
-                    await self.parent_view.original_message.edit(content=new_content)
-                    
-                    # Update the selected model info
-                    self.parent_view.selected_model_info = model_config
-                    
-                    if not interaction.response.is_done():
-                        await interaction.response.send_message(f"✅ Regenerated with {model_config['name']}", ephemeral=True)
-                    else:
+                    if cleaned_response:
+                        # Update the original message with new response
+                        model_attribution = f"\n\n*— {model_config['name']}*"
+                        new_content = cleaned_response + model_attribution
+                        
+                        # Truncate if too long
+                        if len(new_content) > 2000:
+                            new_content = cleaned_response[:1950] + "..." + model_attribution
+                        
+                        await self.parent_view.original_message.edit(content=new_content)
+                        
+                        # Update the selected model info and recreate view with updated model selection
+                        self.parent_view.selected_model_info = model_config
+                        
+                        # Create new view with updated model selection
+                        new_view = SubtleRegenerationView(
+                            self.parent_view.cog, 
+                            self.parent_view.ctx, 
+                            self.parent_view.original_message,
+                            self.parent_view.messages_list, 
+                            model_config,
+                            timeout=300
+                        )
+                        await self.parent_view.original_message.edit(view=new_view)
+                        
                         await interaction.followup.send(f"✅ Regenerated with {model_config['name']}", ephemeral=True)
-                else:
-                    if not interaction.response.is_done():
-                        await interaction.response.send_message("❌ Failed to generate response", ephemeral=True)
                     else:
-                        await interaction.followup.send("❌ Failed to generate response", ephemeral=True)
+                        await interaction.followup.send("❌ Response was filtered out", ephemeral=True)
+                else:
+                    await interaction.followup.send("❌ Failed to generate response", ephemeral=True)
                     
             finally:
-                # Restore original client
+                # Always restore original client and model
                 self.parent_view.cog.openai_client = original_client
+                self.parent_view.messages_list.model = original_model
                 
         except Exception as e:
-            logger.error(f"Failed to regenerate response: {e}")
-            if not interaction.response.is_done():
-                await interaction.response.send_message("❌ An error occurred during regeneration", ephemeral=True)
-            else:
-                await interaction.followup.send("❌ An error occurred during regeneration", ephemeral=True)
+            logger.error(f"Failed to regenerate response: {e}", exc_info=True)
+            try:
+                if interaction.response.is_done():
+                    await interaction.followup.send("❌ An error occurred during regeneration", ephemeral=True)
+                else:
+                    await interaction.response.send_message("❌ An error occurred during regeneration", ephemeral=True)
+            except:
+                pass  # Interaction may have timed out
 
 class ModelSelectionView(discord.ui.View):
     """Ephemeral view for model selection"""
@@ -169,9 +177,27 @@ class ModelSelectionDropdown(discord.ui.Select):
         self.parent_view = parent_view
         self.available_models = available_models
         
+        # Get the currently used model info to mark it as default
+        current_model_info = self.parent_view.parent_view.selected_model_info
+        current_model_name = None
+        
+        if current_model_info:
+            current_model_name = current_model_info.get("name")
+        else:
+            # Fallback: try to determine current model from the response or config
+            current_model_name = self.parent_view.parent_view.messages_list.model
+            
         options = []
         for model in available_models:
-            emoji = "⭐" if model.get("default", False) else "🤖"
+            # Mark the currently used model with a star, others with robot emoji
+            if (current_model_info and model["name"] == current_model_name) or \
+               (not current_model_info and model["model"] == current_model_name):
+                emoji = "⭐"  # Currently used model
+            elif model.get("default", False):
+                emoji = "🌟"  # Default model (different from currently used)
+            else:
+                emoji = "🤖"  # Other models
+                
             options.append(discord.SelectOption(
                 label=model["name"],
                 value=model["name"],
@@ -214,6 +240,24 @@ async def add_subtle_regeneration(cog: MixinMeta, ctx: commands.Context,
             logger.info("No regeneration models configured, skipping regeneration view")
             await setup_reaction_monitoring(cog, message, selected_model_info)
             return message
+        
+        # If no selected_model_info provided, try to determine the current model
+        if not selected_model_info:
+            # Try to find a matching model from regen_models based on the current model
+            current_model = messages_list.model
+            for model_config in regen_models:
+                if model_config["model"] == current_model:
+                    selected_model_info = model_config
+                    break
+            
+            # If still no match, create a basic model info for the current model
+            if not selected_model_info:
+                selected_model_info = {
+                    "name": f"Current ({current_model})",
+                    "model": current_model,
+                    "endpoint": "current",
+                    "default": False
+                }
         
         # Add the subtle regeneration view (small button)
         view = SubtleRegenerationView(cog, ctx, message, messages_list, selected_model_info)
