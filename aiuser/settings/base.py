@@ -47,9 +47,57 @@ class Settings(
     @commands.group(aliases=["ai_user"])
     @commands.bot_has_permissions(embed_links=True, add_reactions=True)
     @commands.guild_only()
-    async def aiuser(self, _):
-        """Utilize OpenAI to reply to messages and images in approved channels and by opt-in users"""
-        pass
+    async def aiuser(self, ctx):
+        """Utilize OpenAI to reply to messages and images in approved channels and by opt-in users
+        
+        AIUser provides human-like Discord interactions powered by AI models.
+        React to bot messages with emojis to rate responses!
+        """
+        if ctx.invoked_subcommand is None:
+            embed = discord.Embed(
+                title="🤖 AIUser - AI-Powered Discord Bot",
+                description=(
+                    "Transform your Discord server with AI-powered conversations!\n\n"
+                    "**Getting Started:**\n"
+                    "• Use `/chat <message>` to talk directly to the AI\n"
+                    "• @mention the bot for natural conversations\n"
+                    "• React with emojis (👍👎❤️😂etc.) to rate responses\n"
+                    "• Click the small 🔄 button to try different AI models\n\n"
+                    "**Key Features:**\n"
+                    "• Multiple AI models (GPT, Claude, etc.)\n"
+                    "• Image scanning and generation\n"
+                    "• Function calling capabilities\n"
+                    "• Conversation memory\n"
+                    "• Customizable prompts and behavior"
+                ),
+                color=discord.Color.blue()
+            )
+            embed.add_field(
+                name="📋 Main Commands",
+                value=(
+                    "`config` - View current settings\n"
+                    "`add <#channel>` - Enable AI in a channel\n" 
+                    "`remove <#channel>` - Disable AI in a channel\n"
+                    "`optin/optout` - Join/leave the AI system\n"
+                    "`forget` - Clear conversation memory\n"
+                    "`regen` - Manage response regeneration"
+                ),
+                inline=True
+            )
+            embed.add_field(
+                name="⚙️ Configuration",
+                value=(
+                    "`prompt` - Customize AI personality\n"
+                    "`imagescan` - Configure image analysis\n"
+                    "`imagerequest` - Setup image generation\n"
+                    "`triggers` - Manage response triggers\n"
+                    "`functions` - Enable AI tool usage\n"
+                    "`regex` - Text filtering settings"
+                ),
+                inline=True
+            )
+            embed.set_footer(text="Use [p]help aiuser <command> for detailed help on any command")
+            await ctx.send(embed=embed)
 
     @aiuser.command(aliases=["lobotomize"])
     async def forget(self, ctx: commands.Context):
@@ -213,24 +261,23 @@ class Settings(
         main_embed.add_field(
             name="Public Forget Command", inline=True, value=f"`{config['public_forget']}`"
         )
-        
-        # Add regeneration settings section
+        embeds.append(main_embed)
+
+        # Create separate embed for regeneration settings
         regen_models = glob_config.get("regen_models", [])
         random_mode = glob_config.get("random_model_enabled", False)
         
-        main_embed.add_field(
-            name="",
-            inline=False,
-            value="**🔄 Regeneration Settings**",  
+        regen_embed = discord.Embed(
+            title="🔄 Regeneration Settings", color=await ctx.embed_color()
         )
         
-        main_embed.add_field(
+        regen_embed.add_field(
             name="Available Models",
             inline=True,
             value=f"`{len(regen_models)}` configured",
         )
         
-        main_embed.add_field(
+        regen_embed.add_field(
             name="Random Model Mode",
             inline=True,
             value=f"`{random_mode}`",
@@ -238,13 +285,26 @@ class Settings(
         
         # Show default model
         default_model = next((m["name"] for m in regen_models if m.get("default", False)), "None")
-        main_embed.add_field(
+        regen_embed.add_field(
             name="Default Model",
             inline=True,
             value=f"`{default_model}`",
         )
         
-        embeds.append(main_embed)
+        # List configured models
+        if regen_models:
+            model_list = []
+            for model in regen_models[:10]:  # Limit to first 10 to avoid field limits
+                status = "⭐ Default" if model.get("default", False) else ""
+                model_list.append(f"**{model['name']}** ({model['endpoint']}) {status}")
+            
+            regen_embed.add_field(
+                name="Configured Models",
+                inline=False,
+                value="\n".join(model_list) or "None",
+            )
+        
+        embeds.append(regen_embed)
 
         parameters = config["parameters"]
         if parameters is not None:

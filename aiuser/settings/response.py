@@ -20,21 +20,79 @@ class ResponseSettings(MixinMeta):
 
     @aiuser.group(name="response")
     @checks.admin_or_permissions(manage_guild=True)
-    async def response(self, _):
+    async def response(self, ctx):
         """ Change settings used for generated responses
 
             (All subcommands are per server)
         """
-        pass
+        if ctx.invoked_subcommand is None:
+            embed = discord.Embed(
+                title="📝 Response Settings",
+                description=(
+                    "Configure how the AI generates and processes responses.\n\n"
+                    "**Available Commands:**\n"
+                    "• `removelist` - Manage regex patterns to remove from responses\n"
+                    "• Configure text filtering and cleanup rules"
+                ),
+                color=discord.Color.green()
+            )
+            embed.set_footer(text="Use [p]help aiuser response <command> for detailed help")
+            await ctx.send(embed=embed)
 
-    @response.group(name="removelist")
-    async def removelist(self, _):
-        """ Manage the list of regex patterns to remove from responses
+    @response.group(name="removelist", aliases=["regex"])
+    async def removelist(self, ctx):
+        """ Manage regex patterns to remove unwanted text from AI responses
+        
+        Regex patterns help clean up AI responses by removing:
+        - Unwanted prefixes like "As an AI assistant..."
+        - Model names and signatures
+        - Repetitive phrases
+        - System messages
         """
+        if ctx.invoked_subcommand is None:
+            embed = discord.Embed(
+                title="🧹 Response Cleanup (Regex Patterns)",
+                description=(
+                    "Remove unwanted text from AI responses using regex patterns.\n\n"
+                    "**Common Use Cases:**\n"
+                    "• Remove AI disclaimers: `^As an AI assistant,?`\n"
+                    "• Clean model signatures: `{botname}:`\n"
+                    "• Filter repetitive phrases\n"
+                    "• Remove system messages\n\n"
+                    "**Available Commands:**\n"
+                    "`add <pattern>` - Add a new regex pattern\n"
+                    "`remove <number>` - Remove pattern by number\n"
+                    "`show` - View all current patterns\n"
+                    "`reset` - Reset to default patterns"
+                ),
+                color=discord.Color.orange()
+            )
+            embed.add_field(
+                name="💡 Example Usage",
+                value=(
+                    "```\n"
+                    "[p]aiuser response removelist add ^As an AI\n"
+                    "[p]aiuser response removelist show\n"
+                    "[p]aiuser response removelist remove 3\n"
+                    "```"
+                ),
+                inline=False
+            )
+            embed.set_footer(text="⚠️ Test regex patterns carefully to avoid removing wanted text!")
+            await ctx.send(embed=embed)
 
     @removelist.command(name="add")
     async def removelist_add(self, ctx: commands.Context, *, regex_pattern: str):
-        """Add a regex pattern to the list of patterns to remove from responses"""
+        """Add a regex pattern to remove unwanted text from AI responses
+        
+        **Examples:**
+        - `^As an AI` - Remove "As an AI..." at start of messages
+        - `{botname}:` - Remove bot name prefixes
+        - `\[Image[^\]]+\]` - Remove image placeholders
+        
+        **Parameters:**
+        - `regex_pattern` - A valid regex pattern to match unwanted text
+        """
         try:
             re.compile(regex_pattern)
         except re.error:
@@ -51,7 +109,13 @@ class ResponseSettings(MixinMeta):
 
     @removelist.command(name="remove")
     async def removelist_remove(self, ctx: commands.Context, *, number: int):
-        """Remove a regex pattern (by number) from the list"""
+        """Remove a regex pattern by its number in the list
+        
+        Use `[p]aiuser response removelist show` to see numbered patterns.
+        
+        **Parameters:**
+        - `number` - The number of the pattern to remove (1, 2, 3, etc.)
+        """
         removelist_regexes = await self.config.guild(ctx.guild).removelist_regexes()
         if not (1 <= number <= len(removelist_regexes)):
             return await ctx.send("Invalid number.")
@@ -61,7 +125,11 @@ class ResponseSettings(MixinMeta):
 
     @removelist.command(name="show")
     async def removelist_show(self, ctx: commands.Context):
-        """Show the current regex patterns of strings to removed from responses """
+        """Display all current regex patterns used to clean AI responses
+        
+        Shows a numbered list of all patterns currently removing unwanted text.
+        Use the numbers with the `remove` command to delete specific patterns.
+        """
         removelist_regexes = await self.config.guild(ctx.guild).removelist_regexes()
         if not removelist_regexes:
             return await ctx.send("The list of regex patterns is empty.")
@@ -87,7 +155,13 @@ class ResponseSettings(MixinMeta):
 
     @removelist.command(name="reset")
     async def removelist_reset(self, ctx: commands.Context):
-        """Reset the list of regexes to default """
+        """Reset regex patterns to the default set
+        
+        This will remove all custom patterns and restore the original
+        regex patterns that clean common AI response issues.
+        
+        ⚠️ This action cannot be undone!
+        """
         embed = discord.Embed(
             title="Are you sure?",
             description="This will reset this server's removelist to default.",

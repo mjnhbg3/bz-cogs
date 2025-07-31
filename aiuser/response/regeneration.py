@@ -62,7 +62,6 @@ class RegenerateButton(discord.ui.Button):
         super().__init__(
             style=discord.ButtonStyle.secondary,
             emoji="🔄",
-            label="Try different model",
             row=0
         )
     
@@ -238,11 +237,9 @@ async def setup_reaction_monitoring(cog: MixinMeta, message: discord.Message,
             model_name = selected_model_info.get("name", "Unknown")
             endpoint_name = selected_model_info.get("endpoint", "Unknown")
         else:
-            # Try to get default model info
-            default_model = await cog.endpoint_manager.get_default_model()
-            if default_model:
-                model_name = default_model.get("name", "Unknown")
-                endpoint_name = default_model.get("endpoint", "Unknown")
+            # Use the current model from the message list as fallback
+            model_name = "Default"
+            endpoint_name = "Default"
         
         cog.tracked_messages[message.id] = {
             "model": model_name,
