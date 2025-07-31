@@ -110,6 +110,10 @@ class LLMPipeline:
         logger.warning(f'Could not find tool "{tool_name}" in {self.ctx.guild.name}')
         return None
 
+    async def generate_response(self) -> Optional[str]:
+        """Generate a response using the LLM pipeline - alias for run()"""
+        return await self.run()
+
     async def run(self) -> Optional[str]:
         try:
             return await self.create_completion()

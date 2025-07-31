@@ -13,6 +13,7 @@ from aiuser.settings.image_scan import ImageScanSettings
 from aiuser.settings.owner import OwnerSettings
 from aiuser.settings.prompt import PromptSettings
 from aiuser.settings.random_message import RandomMessageSettings
+from aiuser.settings.regeneration import RegenerationSettings
 from aiuser.settings.response import ResponseSettings
 from aiuser.settings.triggers import TriggerSettings
 from aiuser.settings.utilities import (
@@ -40,6 +41,7 @@ class Settings(
     OwnerSettings,
     RandomMessageSettings,
     FunctionCallingSettings,
+    RegenerationSettings,
     MixinMeta,
 ):
     @commands.group(aliases=["ai_user"])

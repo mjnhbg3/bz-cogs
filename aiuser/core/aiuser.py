@@ -21,6 +21,8 @@ from aiuser.messages_list.entry import MessageEntry
 from aiuser.settings.base import Settings
 from aiuser.types.abc import CompositeMetaClass
 from aiuser.utils.cache import Cache
+from aiuser.utils.endpoint_manager import EndpointManager
+from aiuser.utils.response_rating import ResponseRating
 
 from .openai_utils import setup_openai_client
 
@@ -50,6 +52,10 @@ class AIUser(
         self.ignore_regex: dict[int, re.Pattern] = {}
         self.override_prompt_start_time: dict[int, datetime] = {}
         self.cached_messages: Cache[int, MessageEntry] = Cache(limit=100)
+        
+        # Regeneration system
+        self.endpoint_manager = EndpointManager(bot, self.config)
+        self.rating_system = ResponseRating(self.config)
 
         self.config.register_member(**DEFAULT_MEMBER)
         self.config.register_role(**DEFAULT_ROLE)
@@ -79,6 +85,7 @@ class AIUser(
     async def cog_unload(self):
         if self.openai_client:
             await self.openai_client.close()
+        await self.endpoint_manager.close_all_clients()
         self.random_message_trigger.cancel()
 
     async def red_delete_data_for_user(self, *, requester, user_id: int):

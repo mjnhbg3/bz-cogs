@@ -49,6 +49,21 @@ DEFAULT_MIN_MESSAGE_LENGTH = 2
 DEFAULT_IMAGE_UPLOAD_LIMIT = 10 * (1024 * 1024)  # 10 MB
 DEFAULT_LLM_MODEL = "gpt-4.1-nano"
 
+DEFAULT_REGEN_MODELS = [
+    {
+        "name": "GPT-4.1",
+        "model": "gpt-4.1",
+        "endpoint": "openai",
+        "default": True
+    },
+    {
+        "name": "Claude",
+        "model": "anthropic/claude-3.5-sonnet",
+        "endpoint": "openrouter",
+        "default": False
+    }
+]
+
 DEFAULT_GLOBAL = {
             "custom_openai_endpoint": None,
             "openai_endpoint_request_timeout": 60,
@@ -59,6 +74,9 @@ DEFAULT_GLOBAL = {
             "max_prompt_length": 200,
             "custom_text_prompt": None,
             "endpoint_model_history": {},
+            "regen_models": DEFAULT_REGEN_MODELS,
+            "random_model_enabled": False,
+            "response_ratings": {},
 }
 
 DEFAULT_GUILD = {
