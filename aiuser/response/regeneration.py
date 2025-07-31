@@ -18,7 +18,7 @@ class RegenerationView(discord.ui.View):
     """Discord UI View for response regeneration"""
     
     def __init__(self, cog: MixinMeta, ctx: commands.Context, original_message: discord.Message, 
-                 messages_list: MessagesList, timeout: float = 300):
+                 messages_list: MessagesList, timeout: float = 1800):
         super().__init__(timeout=timeout)
         self.cog = cog
         self.ctx = ctx
@@ -112,9 +112,8 @@ class RegenerationDropdown(discord.ui.Select):
     
     async def callback(self, interaction: discord.Interaction):
         """Handle model selection"""
-        if interaction.user != self.parent_view.ctx.author:
-            await interaction.response.send_message("Only the original user can regenerate responses.", ephemeral=True)
-            return
+        # Allow any user to regenerate responses (not just original requester)
+        # This makes sense for @mentions and random responses where anyone should be able to try different models
         
         selected_model = self.values[0]
         regen_models = await self.parent_view.cog.config.regen_models()
@@ -189,9 +188,12 @@ class ThumbsUpButton(discord.ui.Button):
                         model_info = parts[0]
                         endpoint_info = parts[1]
             
+            # Create unique rating key (message_id + user_id) to allow multiple users to rate the same response
+            rating_key = f"{self.parent_view.original_message.id}_{interaction.user.id}"
+            
             # Log the rating
             await self.parent_view.rating_system.log_rating(
-                message_id=self.parent_view.original_message.id,
+                message_id=rating_key,  # Use composite key for unique user ratings
                 user_id=interaction.user.id,
                 guild_id=interaction.guild.id,
                 model=model_info,
@@ -201,7 +203,7 @@ class ThumbsUpButton(discord.ui.Button):
             )
             
             emoji = "👍" if rating == "thumbs_up" else "👎"
-            await interaction.response.send_message(f"{emoji} Rating recorded!", ephemeral=True)
+            await interaction.response.send_message(f"{emoji} Rating recorded! Thank you for the feedback.", ephemeral=True)
             
         except Exception as e:
             logger.error(f"Failed to record rating: {e}")
